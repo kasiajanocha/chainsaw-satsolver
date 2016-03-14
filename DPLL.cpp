@@ -64,7 +64,11 @@ int main()
 			break;
 		if(line[0] != 'p')
 			continue;
-		std::sscanf(line, "p %s%zu%zu", format, &numvar, &numclause);
+		if(std::sscanf(line, "p %s%zu%zu", format, &numvar, &numclause) != 3)
+		{
+			std::printf("Bad input line: %s\n", line);
+			return -1;
+		}
 		if(std::strcmp(format, "cnf") != 0)
 		{
 			std::printf("Bad format: %s\n", format);
@@ -76,7 +80,11 @@ int main()
 			while(true)
 			{
 				int var;
-				std::scanf("%d", &var);
+				if(std::scanf("%d", &var) != 1)
+				{
+					std::printf("Bad input\n");
+					return -1;
+				}
 				if(var == 0)
 					break;
 				clause.emplace_back(var);
