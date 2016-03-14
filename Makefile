@@ -9,4 +9,7 @@ build: clean
 clean:
 	$(RM) DPLL
 
-.PHONY: build clean
+debug: clean
+	$(MAKE) DPLL
+
+.PHONY: build clean debug
