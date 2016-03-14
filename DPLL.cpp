@@ -2,48 +2,55 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <tuple>
 #include <utility>
 #include <vector>
 
-constexpr int var_index(int var)
+std::pair<bool, std::vector<std::vector<int>>> unit_propagation(const std::vector<std::vector<int>> &clauses)
 {
-	return std::abs(var) - 1;
+	//TODO
+	std::vector<std::vector<int>> new_clauses(clauses);
+
+	return std::make_pair(true, new_clauses);
 }
 
-bool is_model(const std::vector<std::vector<int>> &clauses, std::vector<int> &assignments)
-{
-	return std::all_of(clauses.cbegin(), clauses.cend(), [&assignments](const std::vector<int> &clause) -> bool {
-		return std::any_of(clause.cbegin(), clause.cend(), [&assignments](int var) -> bool {
-			return var * assignments[var_index(var)] > 0;
-		});
-	});
-}
-
-bool solve_sat(std::size_t numvar, const std::vector<std::vector<int>> &clauses, std::vector<int> &assignments)
+bool solve_sat(std::size_t numvar, std::vector<std::vector<int>> &clauses, std::vector<int> &assignments)
 {
 	if(numvar == assignments.size())
-		return is_model(clauses, assignments);
-
-	assignments.emplace_back(1);
-
-	if(solve_sat(numvar, clauses, assignments))
 		return true;
 
-	assignments.pop_back();
-	assignments.emplace_back(-1);
+	assignments.emplace_back(1);
+	clauses.emplace_back(std::initializer_list<int>{static_cast<int>(assignments.size())});
 
-	if(solve_sat(numvar, clauses, assignments))
+	bool possible;
+	std::vector<std::vector<int>> up_clauses;
+
+	std::tie(possible, up_clauses) = unit_propagation(clauses);
+
+	if(possible && solve_sat(numvar, up_clauses, assignments))
+		return true;
+
+	assignments.back() = -1;
+	clauses.back().front() = -static_cast<int>(assignments.size());
+
+	std::tie(possible, up_clauses) = unit_propagation(clauses);
+
+	if(possible && solve_sat(numvar, up_clauses, assignments))
 		return true;
 
 	assignments.pop_back();
 	return false;
 }
 
-void solve(std::size_t numvar, const std::vector<std::vector<int>> &clauses)
+void solve(std::size_t numvar, std::vector<std::vector<int>> &clauses)
 {
 	std::vector<int> assignments;
+	bool possible;
+	std::vector<std::vector<int>> up_clauses;
 
-	if(solve_sat(numvar, clauses, assignments))
+	std::tie(possible, up_clauses) = unit_propagation(clauses);
+
+	if(possible && solve_sat(numvar, up_clauses, assignments))
 	{
 		std::printf("s SATISFIABLE\n");
 
