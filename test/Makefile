@@ -9,6 +9,7 @@ GTEST = gtest/gtest_main.o gtest/libgtest.a
 
 test.x:
 	$(MAKE) -C gtest
+	@./gen_benchmark_tests.sh src/benchmarks.cc
 	$(MAKE) -C src
 	$(CXX) $(CXXFLAGS) $(GTEST) src/*.o -o bin/$@ $(LIBS)
 
