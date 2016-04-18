@@ -1,15 +1,27 @@
-CXXFLAGS = -Og -g
+CXXFLAGS = -std=c++11 -Og -g
+PROJ_DIR := $(shell pwd)
 
-DPLL: DPLL.cpp
-	$(CXX) $^ -o $@ $(CXXFLAGS) -std=c++11 -Wall -Wconversion -Wextra -Wpedantic -Wshadow
+export CXXFLAGS
+export PROJ_DIR
 
 build: clean
-	$(MAKE) CXXFLAGS=-O3 DPLL
+	$(MAKE) CXXFLAGS+=-O3 -C src/
+
+all: build runtest
 
 clean:
-	$(RM) DPLL
+	$(RM)  ${PROJ_DIR}/bin/*
+
+cleanall: clean
+	$(MAKE) -C test clean
 
 debug: clean
-	$(MAKE) DPLL
+	$(MAKE) -C src/
 
-.PHONY: build clean debug
+test:
+	$(MAKE) -C test
+
+runtest: test
+	@./test/bin/test.x
+
+.PHONY: build clean debug test runtest all
