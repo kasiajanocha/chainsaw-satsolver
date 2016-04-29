@@ -3,6 +3,8 @@ LIBS += -lpthread
 _INCLUDE_DIRS += $(shell pwd)/include
 INCLUDE_DIRS = $(foreach dir,$(_INCLUDE_DIRS), -I$(dir))
 
+$(shell mkdir -p bin)
+
 export INCLUDE_DIRS
 
 GTEST = gtest/gtest_main.o gtest/libgtest.a 

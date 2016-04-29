@@ -4,3 +4,4 @@ DPLL
 *.a
 *.x
 bin/*
+test/bin/*
