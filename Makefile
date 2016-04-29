@@ -1,6 +1,8 @@
 CXXFLAGS = -std=c++11 -Og -g
 PROJ_DIR := $(shell pwd)
 
+$(shell mkdir -p ${PROJ_DIR}/bin)
+
 export CXXFLAGS
 export PROJ_DIR
 

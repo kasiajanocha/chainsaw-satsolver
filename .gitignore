@@ -3,3 +3,4 @@ DPLL
 *.exe
 *.a
 *.x
+bin/*
