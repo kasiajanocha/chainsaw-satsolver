@@ -6,12 +6,11 @@
 #include <utility>
 #include <vector>
 
-std::pair<bool, std::vector<std::vector<int>>> unit_propagation(const std::vector<std::vector<int>> &clauses)
-{
-	//TODO
-	std::vector<std::vector<int>> new_clauses(clauses);
+#include "unit_propagation.h"
 
-	return std::make_pair(true, new_clauses);
+std::pair<bool, std::vector<std::vector<int>>> unit_propagation(const std::vector<std::vector<int>> &clauses, std::size_t numvar)
+{
+	return UnitPropagator(clauses, numvar).propagate();
 }
 
 bool solve_sat(std::size_t numvar, std::vector<std::vector<int>> &clauses, std::vector<int> &assignments)
@@ -25,7 +24,7 @@ bool solve_sat(std::size_t numvar, std::vector<std::vector<int>> &clauses, std::
 	bool possible;
 	std::vector<std::vector<int>> up_clauses;
 
-	std::tie(possible, up_clauses) = unit_propagation(clauses);
+	std::tie(possible, up_clauses) = unit_propagation(clauses, numvar);
 
 	if(possible && solve_sat(numvar, up_clauses, assignments))
 		return true;
@@ -33,7 +32,7 @@ bool solve_sat(std::size_t numvar, std::vector<std::vector<int>> &clauses, std::
 	assignments.back() = -1;
 	clauses.back().front() = -static_cast<int>(assignments.size());
 
-	std::tie(possible, up_clauses) = unit_propagation(clauses);
+	std::tie(possible, up_clauses) = unit_propagation(clauses, numvar);
 
 	if(possible && solve_sat(numvar, up_clauses, assignments))
 		return true;
@@ -48,7 +47,7 @@ void solve(std::size_t numvar, std::vector<std::vector<int>> &clauses)
 	bool possible;
 	std::vector<std::vector<int>> up_clauses;
 
-	std::tie(possible, up_clauses) = unit_propagation(clauses);
+	std::tie(possible, up_clauses) = unit_propagation(clauses, numvar);
 
 	if(possible && solve_sat(numvar, up_clauses, assignments))
 	{
