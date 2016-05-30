@@ -5,3 +5,4 @@ DPLL
 *.x
 bin/*
 test/bin/*
+satori*
