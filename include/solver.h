@@ -55,7 +55,7 @@ class solver
         if (find_if(formula.begin(), formula.end(), [](const ClauseType& cl) { return cl.isEmpty(); }) != formula.end())
            return UNSATISFIED;
 
-        unitPropagate();
+        if(!unitPropagate()) return UNSATISFIED;
 
         literal_type literal = feeder->getLiteral();
         if (literal == 0) return SATISFIED;
@@ -109,8 +109,11 @@ class solver
         return true;
     }
 
-    void unitPropagate() {
-
+    bool unitPropagate() {
+        // bool possible = false;
+        // std::tie(possible, ctx) = UnitPropagator<ClauseType, ValuationType>(ctx).propagate();
+        // return possible;
+        return true;
     }
 
     computation_context<ClauseType, ValuationType> ctx;
