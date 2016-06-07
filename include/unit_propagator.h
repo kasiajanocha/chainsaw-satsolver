@@ -1,16 +1,17 @@
+#ifndef _UNIT_PROP
+#define _UNIT_PROP
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <queue>
 #include <stack>
-#ifndef _UNIT_PROP
-#define _UNIT_PROP
-
 #include <tuple>
 #include <utility>
 #include <vector>
 
+#include "ioutils.h"
 #include "sat_utils.h"
 
 /**
@@ -23,15 +24,18 @@ struct UnitClause {
 	int clause_id;
 	int literal;
 	bool positive;
+	TriBool desired;
 	explicit UnitClause(int c, int l)
 	{
 		clause_id = c;
 		literal = l;
 		positive = l > 0;
+		if(positive) desired = TRUE;
+		else desired = FALSE;
 	}
 };
 
-template <typename ClauseType, typename ValuationType>
+template <typename IO, typename ClauseType, typename ValuationType>
 class UnitPropagator {
 	computation_context<ClauseType, ValuationType> _ctx;
 	std::size_t _numclauses;
@@ -45,6 +49,8 @@ class UnitPropagator {
 	std::queue<int> _literal_queue;
 	std::stack<UnitClause> _units;
 	bool _OK;
+	IO _io;
+	std::vector<ClauseType>& _formula;
 
 	void insert_clause_head_list(int clause_id, int literal);
 	void insert_clause_tail_list(int clause_id, int literal);
@@ -54,22 +60,22 @@ class UnitPropagator {
 	void propagate_false_value(int variable);
 
 public:
-	UnitPropagator(computation_context<ClauseType, ValuationType> ctx);
+	UnitPropagator(computation_context<ClauseType, ValuationType> ctx, IO& io, std::vector<ClauseType>& formula);
 	std::pair<bool, computation_context<ClauseType, ValuationType>> propagate();
 };
 
-template <typename ClauseType, typename ValuationType>
-UnitPropagator<ClauseType, ValuationType>::UnitPropagator(computation_context <ClauseType, ValuationType> ctx)
+template <typename IO, typename ClauseType, typename ValuationType>
+UnitPropagator<IO, ClauseType, ValuationType>::UnitPropagator(computation_context <ClauseType, ValuationType> ctx, IO& io, std::vector<ClauseType>& formula):
+	_io(io),
+	_ctx(ctx),
+	_formula(formula)
 {
-	_ctx = ctx;
 	_clauses = std::vector<std::vector<int>>(_ctx.numClauses, std::vector<int>());
-	for (int literal = 1; literal < ctx.positive_occur.size(); literal++)
-		for (int i = 0; i < ctx.positive_occur[literal].size(); ++i)
-			_clauses[i].push_back(literal);
-	for (int literal = 1; literal < ctx.negative_occur.size(); literal++)
-		for (int i = 0; i < ctx.negative_occur[literal].size(); ++i)
-			_clauses[i].push_back(literal);
-	
+	for (int c = 0; c<formula.size(); c++)
+		for(int l = 0 ; l < formula[c].data.size(); l++)
+			if (ctx.valuation[std::abs(formula[c].data[l])] == UNASSIGNED)
+				_clauses[c].push_back(formula[c].data[l]);
+
 	_OK = true;
 	_clauses_of_pos_head = std::vector<std::vector<int>>(_ctx.numVars + 1, std::vector<int>());
 	_clauses_of_neg_head = std::vector<std::vector<int>>(_ctx.numVars + 1, std::vector<int>());
@@ -81,8 +87,8 @@ UnitPropagator<ClauseType, ValuationType>::UnitPropagator(computation_context <C
 		_tail_index.push_back((int)(_clauses[i].end() - _clauses[i].begin()) - 1);
 }
 
-template <typename ClauseType, typename ValuationType>
-void UnitPropagator<ClauseType, ValuationType>::insert_clause_head_list(int clause_id, int literal)
+template <typename IO, typename ClauseType, typename ValuationType>
+void UnitPropagator<IO, ClauseType, ValuationType>::insert_clause_head_list(int clause_id, int literal)
 {
 	if (literal > 0)
 		_clauses_of_pos_head[std::abs(literal)].push_back(clause_id);
@@ -90,8 +96,8 @@ void UnitPropagator<ClauseType, ValuationType>::insert_clause_head_list(int clau
 		_clauses_of_neg_head[std::abs(literal)].push_back(clause_id);
 }
 
-template <typename ClauseType, typename ValuationType>
-void UnitPropagator<ClauseType, ValuationType>::insert_clause_tail_list(int clause_id, int literal)
+template <typename IO, typename ClauseType, typename ValuationType>
+void UnitPropagator<IO, ClauseType, ValuationType>::insert_clause_tail_list(int clause_id, int literal)
 {
 	if (literal > 0)
 		_clauses_of_pos_tail[std::abs(literal)].push_back(clause_id);
@@ -99,8 +105,8 @@ void UnitPropagator<ClauseType, ValuationType>::insert_clause_tail_list(int clau
 		_clauses_of_neg_tail[std::abs(literal)].push_back(clause_id);
 }
 
-template <typename ClauseType, typename ValuationType>
-void UnitPropagator<ClauseType, ValuationType>::shorten_clause_from_head(int clause_id)
+template <typename IO, typename ClauseType, typename ValuationType>
+void UnitPropagator<IO, ClauseType, ValuationType>::shorten_clause_from_head(int clause_id)
 {
 	for (int i = _head_index[clause_id] + 1; i <= _tail_index[clause_id]; ++i)
 	{
@@ -118,8 +124,8 @@ void UnitPropagator<ClauseType, ValuationType>::shorten_clause_from_head(int cla
 }
 
 // analogous to shorten_clause_from_head
-template <typename ClauseType, typename ValuationType>
-void UnitPropagator<ClauseType, ValuationType>::shorten_clause_from_tail(int clause_id)
+template <typename IO, typename ClauseType, typename ValuationType>
+void UnitPropagator<IO, ClauseType, ValuationType>::shorten_clause_from_tail(int clause_id)
 {
 	for (int i = _tail_index[clause_id] - 1; i >= _head_index[clause_id]; --i)
 	{
@@ -135,48 +141,49 @@ void UnitPropagator<ClauseType, ValuationType>::shorten_clause_from_tail(int cla
 	_OK = false;
 }
 
-template <typename ClauseType, typename ValuationType>
-void UnitPropagator<ClauseType, ValuationType>::propagate_true_value(int variable)
+template <typename IO, typename ClauseType, typename ValuationType>
+void UnitPropagator<IO, ClauseType, ValuationType>::propagate_true_value(int variable)
 {
 	for (int clause_id : _clauses_of_neg_head[variable])
-		if(_OK)
+		if(_OK && !_formula[clause_id].isSatisfied())
 			shorten_clause_from_head(clause_id);
 
 	for (int clause_id : _clauses_of_neg_tail[variable])
-		if(_OK)
+		if(_OK && !_formula[clause_id].isSatisfied())
 			shorten_clause_from_tail(clause_id);
 }
 
-template <typename ClauseType, typename ValuationType>
-void UnitPropagator<ClauseType, ValuationType>::propagate_false_value(int variable)
+template <typename IO, typename ClauseType, typename ValuationType>
+void UnitPropagator<IO, ClauseType, ValuationType>::propagate_false_value(int variable)
 {
 	for (int clause_id : _clauses_of_pos_head[variable])
-		if(_OK)
+		if(_OK && !_formula[clause_id].isSatisfied())
 			shorten_clause_from_head(clause_id);
 
 	for (int clause_id : _clauses_of_pos_tail[variable])
-		if(_OK)
+		if(_OK && !_formula[clause_id].isSatisfied())
 			shorten_clause_from_tail(clause_id);
 }
 
-template <typename ClauseType, typename ValuationType>
-std::pair<bool, computation_context<ClauseType, ValuationType>> UnitPropagator<ClauseType, ValuationType>::propagate()
+template <typename IO, typename ClauseType, typename ValuationType>
+std::pair<bool, computation_context<ClauseType, ValuationType>> UnitPropagator<IO, ClauseType, ValuationType>::propagate()
 {
 	for (int c = 0; c < _clauses.size(); ++c)
 	{
-		if (_head_index[c] == _tail_index[c])
+		if (_head_index[c] == _tail_index[c] && _formula[c].isUnitClause())
 			_units.push(UnitClause(c, _clauses[c][_head_index[c]]));
 	}
 
+	_io.out() << "current valuation " << std::endl << "v " << _ctx.valuation << std::endl;
 	while(_OK && !_units.empty())
 	{
 		UnitClause L = _units.top();
 		_units.pop();
-		if (_ctx.valuation[std::abs(L.literal)]==TRUE)
+		if (_ctx.valuation[std::abs(L.literal)]==L.desired) // klauzula jest spelniona
 			continue;
 		else
 		{
-			if (_ctx.valuation[std::abs(L.literal)]==FALSE)
+			if (_ctx.valuation[std::abs(L.literal)]!=UNASSIGNED && _ctx.valuation[std::abs(L.literal)]!=L.desired)
 			{
 				_OK = false;
 				break;
@@ -187,11 +194,14 @@ std::pair<bool, computation_context<ClauseType, ValuationType>> UnitPropagator<C
 				{
 					_ctx.valuation[std::abs(L.literal)] = TRUE;
 					propagate_true_value(std::abs(L.literal));
+					_formula[L.clause_id].resolved++;
+					_formula[L.clause_id].positive++;
 				}
 				else
 				{
 					_ctx.valuation[std::abs(L.literal)] = FALSE;
 					propagate_false_value(std::abs(L.literal));
+					_formula[L.clause_id].resolved++;
 				}
 			}
 		}

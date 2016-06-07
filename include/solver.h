@@ -38,6 +38,19 @@ class solver
         feeder.reset(new LiteralFeeder(ctx));
     }
 
+    bool solutionFound() {
+        for (auto c  : formula)
+            if (!c.isSatisfied()) return false;
+        return true;
+    }
+
+    void fillValuationWithTrue() {
+        for (int i = 0; i<ctx.valuation.size(); i++)
+            if (ctx.valuation[i] == UNASSIGNED)
+                ctx.valuation[i] = TRUE;
+    }
+
+
     Result run() {
         Result res = solve();
         if (res == SATISFIED)
@@ -56,13 +69,19 @@ class solver
            return UNSATISFIED;
 
         if(!unitPropagate()) return UNSATISFIED;
+        if (!unitPropagate()) return UNSATISFIED;
+        if (solutionFound()) {
+            fillValuationWithTrue();
+            return SATISFIED;
+        }
+
 
         literal_type literal = feeder->getLiteral();
         if (literal == 0) return SATISFIED;
 
         TriBool val = feeder->getValuation(literal);
         ctx.valuation[literal] = val;
-        // io.out() << "setting " << literal << " => "  << (val ? "TRUE" : "FALSE") << std::endl;
+        io.out() << "setting " << literal << " => "  << (val ? "TRUE" : "FALSE") << std::endl;
 
         const auto& occursPos = ( val ? ctx.positive_occur[literal] : ctx.negative_occur[literal]);
         const auto& occursNeg = (!val ? ctx.positive_occur[literal] : ctx.negative_occur[literal]);
@@ -78,7 +97,7 @@ class solver
         if (!res)
         {
             ctx.valuation[literal] = (val ? FALSE : TRUE);
-            // io.out() << "setting " << literal << " => "  << (!val ? "TRUE" : "FALSE") << std::endl;
+            io.out() << "setting " << literal << " => "  << (!val ? "TRUE" : "FALSE") << std::endl;
             for (const auto& idx : occursPos) formula[idx].positive--;
             for (const auto& idx : occursNeg) formula[idx].positive++;
             res = solve();
@@ -110,10 +129,9 @@ class solver
     }
 
     bool unitPropagate() {
-        // bool possible = false;
-        // std::tie(possible, ctx) = UnitPropagator<ClauseType, ValuationType>(ctx).propagate();
-        // return possible;
-        return true;
+        bool possible = false;
+        std::tie(possible, ctx) = UnitPropagator<IO, ClauseType, ValuationType>(ctx, io, formula).propagate();
+        return possible;
     }
 
     computation_context<ClauseType, ValuationType> ctx;
