@@ -64,16 +64,15 @@ class solver
             io.out() << "s UNSATISFIED" << std::endl;
     }
 
-    Result solve() {
+    Result solve(int level=0) {
         if (find_if(formula.begin(), formula.end(), [](const ClauseType& cl) { return cl.isEmpty(); }) != formula.end())
            return UNSATISFIED;
 
-        if (!unitPropagate()) return UNSATISFIED;
+        if (!unitPropagate(level)) return UNSATISFIED;
         if (solutionFound()) {
             fillValuationWithTrue();
             return SATISFIED;
         }
-
 
         literal_type literal = feeder->getLiteral();
         if (literal == 0) return SATISFIED;
@@ -92,14 +91,14 @@ class solver
         for (const auto& idx : occursNeg)
             formula[idx].resolved++;
 
-        Result res = solve();
+        Result res = solve(level+1);
         if (!res)
         {
             ctx.valuation[literal] = (val ? FALSE : TRUE);
             io.out() << "setting " << literal << " => "  << (!val ? "TRUE" : "FALSE") << std::endl;
             for (const auto& idx : occursPos) formula[idx].positive--;
             for (const auto& idx : occursNeg) formula[idx].positive++;
-            res = solve();
+            res = solve(level+1);
             for (const auto& idx : occursNeg) formula[idx].positive--;
         }
         else
@@ -127,10 +126,9 @@ class solver
         return true;
     }
 
-    bool unitPropagate() {
-        bool possible = false;
-        std::tie(possible, ctx) = UnitPropagator<IO, ClauseType, ValuationType>(ctx, io, formula).propagate();
-        return possible;
+
+    bool unitPropagate(int level) {
+        return UnitPropagator<IO, ClauseType, ValuationType>(ctx, io, formula).propagate(level);
     }
 
     computation_context<ClauseType, ValuationType> ctx;

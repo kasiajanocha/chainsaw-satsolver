@@ -104,7 +104,8 @@ class computation_context
         numClauses(0),
         positive_occur(),
         negative_occur(),
-        valuation()
+        valuation(),
+        resolved_literals_by_level()
     {
     }
 
@@ -121,6 +122,7 @@ class computation_context
     std::vector<std::vector<idx_type>> positive_occur;
     std::vector<std::vector<idx_type>> negative_occur;
     valuation_type valuation;
+    std::vector<std::vector<literal_type>> resolved_literals_by_level;
 };
 
 enum Result

@@ -37,7 +37,7 @@ struct UnitClause {
 
 template <typename IO, typename ClauseType, typename ValuationType>
 class UnitPropagator {
-	computation_context<ClauseType, ValuationType> _ctx;
+	computation_context<ClauseType, ValuationType>& _ctx;
 	std::size_t _numclauses;
 	std::vector<std::vector<int>> _clauses;
 	std::vector<int> _head_index;
@@ -60,21 +60,18 @@ class UnitPropagator {
 	void propagate_false_value(int variable);
 
 public:
-	UnitPropagator(computation_context<ClauseType, ValuationType> ctx, IO& io, std::vector<ClauseType>& formula);
-	std::pair<bool, computation_context<ClauseType, ValuationType>> propagate();
+	typedef typename clause::literal_type literal_type;
+	UnitPropagator(computation_context<ClauseType, ValuationType>& ctx, IO& io, std::vector<ClauseType>& formula);
+	bool propagate(int level);
 };
 
 template <typename IO, typename ClauseType, typename ValuationType>
-UnitPropagator<IO, ClauseType, ValuationType>::UnitPropagator(computation_context <ClauseType, ValuationType> ctx, IO& io, std::vector<ClauseType>& formula):
+UnitPropagator<IO, ClauseType, ValuationType>::UnitPropagator(computation_context <ClauseType, ValuationType>& ctx, IO& io, std::vector<ClauseType>& formula):
 	_io(io),
 	_ctx(ctx),
 	_formula(formula)
 {
 	_clauses = std::vector<std::vector<int>>(_ctx.numClauses, std::vector<int>());
-	for (int c = 0; c<formula.size(); c++)
-		for(int l = 0 ; l < formula[c].data.size(); l++)
-			if (ctx.valuation[std::abs(formula[c].data[l])] == UNASSIGNED)
-				_clauses[c].push_back(formula[c].data[l]);
 
 	_OK = true;
 	_clauses_of_pos_head = std::vector<std::vector<int>>(_ctx.numVars + 1, std::vector<int>());
@@ -166,15 +163,24 @@ void UnitPropagator<IO, ClauseType, ValuationType>::propagate_false_value(int va
 }
 
 template <typename IO, typename ClauseType, typename ValuationType>
-std::pair<bool, computation_context<ClauseType, ValuationType>> UnitPropagator<IO, ClauseType, ValuationType>::propagate()
+bool UnitPropagator<IO, ClauseType, ValuationType>::propagate(int level)
 {
+	// initializing clauses only if we are actually going to perform unit propagation
+	bool contains_unit_clause = false;
+	for (auto c : _formula) if (c.isUnitClause()) contains_unit_clause  = true;
+	if(!contains_unit_clause) return true;
+
+	for (int c = 0; c < _formula.size(); c++)
+		for(int l = 0 ; l < _formula[c].data.size(); l++)
+			if (_ctx.valuation[std::abs(_formula[c].data[l])] == UNASSIGNED)
+				_clauses[c].push_back(_formula[c].data[l]);
+
 	for (int c = 0; c < _clauses.size(); ++c)
 	{
 		if (_head_index[c] == _tail_index[c] && _formula[c].isUnitClause())
 			_units.push(UnitClause(c, _clauses[c][_head_index[c]]));
 	}
 
-	_io.out() << "current valuation " << std::endl << "v " << _ctx.valuation << std::endl;
 	while(_OK && !_units.empty())
 	{
 		UnitClause L = _units.top();
@@ -190,6 +196,8 @@ std::pair<bool, computation_context<ClauseType, ValuationType>> UnitPropagator<I
 			}
 			else
 			{
+				while (_ctx.resolved_literals_by_level.size() < level+1) _ctx.resolved_literals_by_level.push_back(std::vector<literal_type>());
+				_ctx.resolved_literals_by_level[level].push_back(L.literal);
 				if (L.positive)
 				{
 					_ctx.valuation[std::abs(L.literal)] = TRUE;
@@ -207,7 +215,7 @@ std::pair<bool, computation_context<ClauseType, ValuationType>> UnitPropagator<I
 		}
 	}
 
-	return std::make_pair(_OK, _ctx);
+	return _OK;
 }
 
 #endif
