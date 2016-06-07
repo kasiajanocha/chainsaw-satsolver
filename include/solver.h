@@ -126,7 +126,6 @@ class solver
         return true;
     }
 
-
     bool unitPropagate(int level) {
         return UnitPropagator<IO, ClauseType, ValuationType>(ctx, io, formula).propagate(level);
     }
