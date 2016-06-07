@@ -68,7 +68,6 @@ class solver
         if (find_if(formula.begin(), formula.end(), [](const ClauseType& cl) { return cl.isEmpty(); }) != formula.end())
            return UNSATISFIED;
 
-        if(!unitPropagate()) return UNSATISFIED;
         if (!unitPropagate()) return UNSATISFIED;
         if (solutionFound()) {
             fillValuationWithTrue();
