@@ -128,9 +128,7 @@ class solver
     }
 
     bool unitPropagate() {
-        bool possible = false;
-        std::tie(possible, ctx) = UnitPropagator<IO, ClauseType, ValuationType>(ctx, io, formula).propagate();
-        return possible;
+        return UnitPropagator<IO, ClauseType, ValuationType>(ctx, io, formula).propagate();
     }
 
     computation_context<ClauseType, ValuationType> ctx;

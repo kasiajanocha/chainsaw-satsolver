@@ -37,7 +37,7 @@ struct UnitClause {
 
 template <typename IO, typename ClauseType, typename ValuationType>
 class UnitPropagator {
-	computation_context<ClauseType, ValuationType> _ctx;
+	computation_context<ClauseType, ValuationType>& _ctx;
 	std::size_t _numclauses;
 	std::vector<std::vector<int>> _clauses;
 	std::vector<int> _head_index;
@@ -60,12 +60,12 @@ class UnitPropagator {
 	void propagate_false_value(int variable);
 
 public:
-	UnitPropagator(computation_context<ClauseType, ValuationType> ctx, IO& io, std::vector<ClauseType>& formula);
-	std::pair<bool, computation_context<ClauseType, ValuationType>> propagate();
+	UnitPropagator(computation_context<ClauseType, ValuationType>& ctx, IO& io, std::vector<ClauseType>& formula);
+	bool propagate();
 };
 
 template <typename IO, typename ClauseType, typename ValuationType>
-UnitPropagator<IO, ClauseType, ValuationType>::UnitPropagator(computation_context <ClauseType, ValuationType> ctx, IO& io, std::vector<ClauseType>& formula):
+UnitPropagator<IO, ClauseType, ValuationType>::UnitPropagator(computation_context <ClauseType, ValuationType>& ctx, IO& io, std::vector<ClauseType>& formula):
 	_io(io),
 	_ctx(ctx),
 	_formula(formula)
@@ -166,7 +166,7 @@ void UnitPropagator<IO, ClauseType, ValuationType>::propagate_false_value(int va
 }
 
 template <typename IO, typename ClauseType, typename ValuationType>
-std::pair<bool, computation_context<ClauseType, ValuationType>> UnitPropagator<IO, ClauseType, ValuationType>::propagate()
+bool UnitPropagator<IO, ClauseType, ValuationType>::propagate()
 {
 	for (int c = 0; c < _clauses.size(); ++c)
 	{
@@ -207,7 +207,7 @@ std::pair<bool, computation_context<ClauseType, ValuationType>> UnitPropagator<I
 		}
 	}
 
-	return std::make_pair(_OK, _ctx);
+	return _OK;
 }
 
 #endif
