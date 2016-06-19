@@ -35,8 +35,12 @@ struct UnitClause {
 	}
 };
 
-template <typename IO, typename ClauseType, typename ValuationType>
+template <typename IO, typename ClauseType, typename ValuationType, typename LiteralFeeder>
 class UnitPropagator {
+public:
+	typedef typename clause::literal_type literal_type;
+
+private:
 	computation_context<ClauseType, ValuationType>& _ctx;
 	std::size_t _numclauses;
 	std::vector<std::vector<int>> _clauses;
@@ -51,25 +55,28 @@ class UnitPropagator {
 	bool _OK;
 	IO _io;
 	std::vector<ClauseType>& _formula;
+	LiteralFeeder& _feeder;
 
+	void diagnose_conflict(int clause_id);
 	void insert_clause_head_list(int clause_id, int literal);
 	void insert_clause_tail_list(int clause_id, int literal);
 	void shorten_clause_from_head(int clause_id);
 	void shorten_clause_from_tail(int clause_id);
 	void propagate_true_value(int variable);
 	void propagate_false_value(int variable);
+	void visit(graph_node &node, std::vector<literal_type> &c);
 
 public:
-	typedef typename clause::literal_type literal_type;
-	UnitPropagator(computation_context<ClauseType, ValuationType>& ctx, IO& io, std::vector<ClauseType>& formula);
+	UnitPropagator(computation_context<ClauseType, ValuationType>& ctx, IO& io, std::vector<ClauseType>& formula, LiteralFeeder &feeder);
 	bool propagate(int level);
 };
 
-template <typename IO, typename ClauseType, typename ValuationType>
-UnitPropagator<IO, ClauseType, ValuationType>::UnitPropagator(computation_context <ClauseType, ValuationType>& ctx, IO& io, std::vector<ClauseType>& formula):
+template <typename IO, typename ClauseType, typename ValuationType, typename LiteralFeeder>
+UnitPropagator<IO, ClauseType, ValuationType, LiteralFeeder>::UnitPropagator(computation_context <ClauseType, ValuationType>& ctx, IO& io, std::vector<ClauseType>& formula, LiteralFeeder& feeder):
 	_io(io),
 	_ctx(ctx),
-	_formula(formula)
+	_formula(formula),
+	_feeder(feeder)
 {
 	_clauses = std::vector<std::vector<int>>(_ctx.numClauses, std::vector<int>());
 
@@ -84,8 +91,20 @@ UnitPropagator<IO, ClauseType, ValuationType>::UnitPropagator(computation_contex
 		_tail_index.push_back((int)(_clauses[i].end() - _clauses[i].begin()) - 1);
 }
 
-template <typename IO, typename ClauseType, typename ValuationType>
-void UnitPropagator<IO, ClauseType, ValuationType>::insert_clause_head_list(int clause_id, int literal)
+template <typename IO, typename ClauseType, typename ValuationType, typename LiteralFeeder>
+void UnitPropagator<IO, ClauseType, ValuationType, LiteralFeeder>::diagnose_conflict(int clause_id)
+{
+	std::vector<literal_type> c;
+	for(graph_node &n: _ctx.imp_graph)
+		n.visited = false;
+	for(const literal_type &l: _formula[clause_id].data)
+		visit(_ctx.imp_graph[std::abs(l)], c);
+	_feeder.reportConflict(c);
+	_ctx.add_clause(std::move(c));
+}
+
+template <typename IO, typename ClauseType, typename ValuationType, typename LiteralFeeder>
+void UnitPropagator<IO, ClauseType, ValuationType, LiteralFeeder>::insert_clause_head_list(int clause_id, int literal)
 {
 	if (literal > 0)
 		_clauses_of_pos_head[std::abs(literal)].push_back(clause_id);
@@ -93,8 +112,8 @@ void UnitPropagator<IO, ClauseType, ValuationType>::insert_clause_head_list(int 
 		_clauses_of_neg_head[std::abs(literal)].push_back(clause_id);
 }
 
-template <typename IO, typename ClauseType, typename ValuationType>
-void UnitPropagator<IO, ClauseType, ValuationType>::insert_clause_tail_list(int clause_id, int literal)
+template <typename IO, typename ClauseType, typename ValuationType, typename LiteralFeeder>
+void UnitPropagator<IO, ClauseType, ValuationType, LiteralFeeder>::insert_clause_tail_list(int clause_id, int literal)
 {
 	if (literal > 0)
 		_clauses_of_pos_tail[std::abs(literal)].push_back(clause_id);
@@ -102,8 +121,8 @@ void UnitPropagator<IO, ClauseType, ValuationType>::insert_clause_tail_list(int 
 		_clauses_of_neg_tail[std::abs(literal)].push_back(clause_id);
 }
 
-template <typename IO, typename ClauseType, typename ValuationType>
-void UnitPropagator<IO, ClauseType, ValuationType>::shorten_clause_from_head(int clause_id)
+template <typename IO, typename ClauseType, typename ValuationType, typename LiteralFeeder>
+void UnitPropagator<IO, ClauseType, ValuationType, LiteralFeeder>::shorten_clause_from_head(int clause_id)
 {
 	for (int i = _head_index[clause_id] + 1; i <= _tail_index[clause_id]; ++i)
 	{
@@ -118,11 +137,12 @@ void UnitPropagator<IO, ClauseType, ValuationType>::shorten_clause_from_head(int
 	}
 	// there is an empty clause
 	_OK = false;
+	diagnose_conflict(clause_id);
 }
 
 // analogous to shorten_clause_from_head
-template <typename IO, typename ClauseType, typename ValuationType>
-void UnitPropagator<IO, ClauseType, ValuationType>::shorten_clause_from_tail(int clause_id)
+template <typename IO, typename ClauseType, typename ValuationType, typename LiteralFeeder>
+void UnitPropagator<IO, ClauseType, ValuationType, LiteralFeeder>::shorten_clause_from_tail(int clause_id)
 {
 	for (int i = _tail_index[clause_id] - 1; i >= _head_index[clause_id]; --i)
 	{
@@ -136,10 +156,11 @@ void UnitPropagator<IO, ClauseType, ValuationType>::shorten_clause_from_tail(int
 		else if (_ctx.valuation[std::abs(literal)]==TRUE) return;
 	}
 	_OK = false;
+	diagnose_conflict(clause_id);
 }
 
-template <typename IO, typename ClauseType, typename ValuationType>
-void UnitPropagator<IO, ClauseType, ValuationType>::propagate_true_value(int variable)
+template <typename IO, typename ClauseType, typename ValuationType, typename LiteralFeeder>
+void UnitPropagator<IO, ClauseType, ValuationType, LiteralFeeder>::propagate_true_value(int variable)
 {
 	for (int clause_id : _clauses_of_neg_head[variable])
 		if(_OK && !_formula[clause_id].isSatisfied())
@@ -150,8 +171,8 @@ void UnitPropagator<IO, ClauseType, ValuationType>::propagate_true_value(int var
 			shorten_clause_from_tail(clause_id);
 }
 
-template <typename IO, typename ClauseType, typename ValuationType>
-void UnitPropagator<IO, ClauseType, ValuationType>::propagate_false_value(int variable)
+template <typename IO, typename ClauseType, typename ValuationType, typename LiteralFeeder>
+void UnitPropagator<IO, ClauseType, ValuationType, LiteralFeeder>::propagate_false_value(int variable)
 {
 	for (int clause_id : _clauses_of_pos_head[variable])
 		if(_OK && !_formula[clause_id].isSatisfied())
@@ -162,13 +183,21 @@ void UnitPropagator<IO, ClauseType, ValuationType>::propagate_false_value(int va
 			shorten_clause_from_tail(clause_id);
 }
 
-template <typename IO, typename ClauseType, typename ValuationType>
-bool UnitPropagator<IO, ClauseType, ValuationType>::propagate(int level)
+template <typename IO, typename ClauseType, typename ValuationType, typename LiteralFeeder>
+bool UnitPropagator<IO, ClauseType, ValuationType, LiteralFeeder>::propagate(int level)
 {
 	// initializing clauses only if we are actually going to perform unit propagation
 	bool contains_unit_clause = false;
 	for (auto c : _formula) if (c.isUnitClause()) contains_unit_clause  = true;
 	if(!contains_unit_clause) return true;
+
+	for (auto &v : _ctx.imp_graph)
+        {
+		v.edges.resize(level + 1);
+		v.edges[level].clear();
+		v.rev_edges.resize(level + 1);
+		v.rev_edges[level].clear();
+	}
 
 	for (int c = 0; c < _formula.size(); c++)
 		for(int l = 0 ; l < _formula[c].data.size(); l++)
@@ -192,6 +221,7 @@ bool UnitPropagator<IO, ClauseType, ValuationType>::propagate(int level)
 			if (_ctx.valuation[std::abs(L.literal)]!=UNASSIGNED && _ctx.valuation[std::abs(L.literal)]!=L.desired)
 			{
 				_OK = false;
+				diagnose_conflict(L.clause_id);
 				break;
 			}
 			else
@@ -202,20 +232,41 @@ bool UnitPropagator<IO, ClauseType, ValuationType>::propagate(int level)
 				{
 					_ctx.valuation[std::abs(L.literal)] = TRUE;
 					propagate_true_value(std::abs(L.literal));
-					_formula[L.clause_id].resolved++;
 					_formula[L.clause_id].positive++;
 				}
 				else
 				{
 					_ctx.valuation[std::abs(L.literal)] = FALSE;
 					propagate_false_value(std::abs(L.literal));
-					_formula[L.clause_id].resolved++;
 				}
+				_formula[L.clause_id].resolved++;
+				for (const literal_type l: _formula[L.clause_id].data) // maintain the implication graph
+					if (l != L.literal)
+					{
+						_ctx.imp_graph[std::abs(l)].edges[level].push_back(&_ctx.imp_graph[std::abs(L.literal)]);
+						_ctx.imp_graph[std::abs(L.literal)].edges[level].push_back(&_ctx.imp_graph[std::abs(l)]);
+					}
 			}
 		}
 	}
 
 	return _OK;
+}
+
+template <typename IO, typename ClauseType, typename ValuationType, typename LiteralFeeder>
+void UnitPropagator<IO, ClauseType, ValuationType, LiteralFeeder>::visit(graph_node &node, std::vector<literal_type> &c)
+{
+	if(node.visited)
+		return;
+
+	node.visited = true;
+
+	if(node.rev_edge_count() == 0)
+		c.push_back(_ctx.valuation[node.var_index] ? -static_cast<literal_type>(node.var_index) : node.var_index);
+	else
+                for(auto &e: node.rev_edges)
+			for(graph_node *n: e)
+				visit(*n, c);
 }
 
 #endif

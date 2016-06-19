@@ -28,7 +28,7 @@ class solver
 
     void fillFormula() {
         io.read(ctx, formula);
-        ctx.initialise();
+        ctx.initialise(&formula);
         for (idx_type idx = 0; idx < ctx.numClauses; ++idx)
             for (const auto& lit : formula[idx].data)
             {
@@ -62,6 +62,7 @@ class solver
         }
         else
             io.out() << "s UNSATISFIED" << std::endl;
+        return res;
     }
 
     Result solve(int level=0) {
@@ -127,7 +128,7 @@ class solver
     }
 
     bool unitPropagate(int level) {
-        return UnitPropagator<IO, ClauseType, ValuationType>(ctx, io, formula).propagate(level);
+        return UnitPropagator<IO, ClauseType, ValuationType, LiteralFeeder>(ctx, io, formula, *feeder.get()).propagate(level);
     }
 
     computation_context<ClauseType, ValuationType> ctx;

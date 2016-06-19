@@ -9,7 +9,7 @@ int main(int argc, char* argv[])
     solver<cdimacsIO,
            clause,
            valuation<TriBool>,
-           randomizedLiteralFeeder<computation_context <clause, valuation<TriBool>>>
+           vsidsLiteralFeeder<computation_context <clause, valuation<TriBool>>>
           > solver(io);
     solver.fillFormula();
     solver.run();

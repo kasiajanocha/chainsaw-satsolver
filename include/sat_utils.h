@@ -59,8 +59,13 @@ class _clause
     {
     }
 
+    _clause(std::vector<literal_type>&& _data) :
+        positive(0), resolved(_data.size()), data(std::move(_data))
+    {
+    }
+
     void createClause(std::vector<literal_type>&& _data) {
-        data = _data;
+        data = std::move(_data);
         done();
     }
 
@@ -89,6 +94,30 @@ class _clause
 
 typedef _clause<int16_t> clause;
 
+class graph_node
+{
+	public:
+	std::vector<std::vector<graph_node *>> edges, rev_edges; // edges by level
+	idx_type var_index; // variable index
+	bool visited;
+
+	graph_node(): var_index(0) {}
+
+	std::size_t edge_count() const
+	{
+		std::size_t count = 0;
+		for(const auto &v: edges) count += v.size();
+		return count;
+	}
+
+	std::size_t rev_edge_count() const
+	{
+		std::size_t count = 0;
+		for(const auto &v: rev_edges) count += v.size();
+		return count;
+	}
+};
+
 template <typename ClauseType, typename ValuationType>
 class computation_context
 {
@@ -109,12 +138,27 @@ class computation_context
     {
     }
 
-    void initialise()
+    void initialise(std::vector<ClauseType> *formula)
     {
+	this->formula = formula;
         valuation.resize(numVars + 1);
         for (auto& v : valuation) v = UNASSIGNED;
         positive_occur.resize(valuation.size());
         negative_occur.resize(valuation.size());
+	imp_graph.resize(numVars + 1);
+	for (literal_type i = 1; i < numVars + 1; ++i) imp_graph[i].var_index = i;
+    }
+
+    void add_clause(std::vector<literal_type> &&c)
+    {
+        const idx_type idx = formula->size();
+        formula->emplace_back(std::move(c));
+        ++numClauses;
+        for (const auto& lit : (*formula)[idx].data)
+        {
+            if (lit > 0) positive_occur[static_cast<idx_type>(lit)].push_back(idx);
+            else negative_occur[static_cast<idx_type>(-lit)].push_back(idx);
+        }
     }
 
     literal_type numVars;
@@ -123,6 +167,8 @@ class computation_context
     std::vector<std::vector<idx_type>> negative_occur;
     valuation_type valuation;
     std::vector<std::vector<literal_type>> resolved_literals_by_level;
+    std::vector<graph_node> imp_graph; // implication graph
+    std::vector<clause_type> *formula;
 };
 
 enum Result
