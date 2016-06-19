@@ -56,12 +56,12 @@ class solver
         if (res == SATISFIED)
         {
             if (verify())
-                io.out() << "s SATISFIED " << std::endl << "v " << ctx.valuation << std::endl;
+                io.out() << "SAT" << std::endl << ctx.valuation << " 0" << std::endl;
             else
-                io.out() << "s UNKNOWN" << std::endl;
+                io.out() << "UNKNOWN" << std::endl;
         }
         else
-            io.out() << "s UNSATISFIED" << std::endl;
+            io.out() << "UNSAT" << std::endl;
         return res;
     }
 
@@ -80,7 +80,6 @@ class solver
 
         TriBool val = feeder->getValuation(literal);
         ctx.valuation[literal] = val;
-        io.out() << "setting " << literal << " => "  << (val ? "TRUE" : "FALSE") << std::endl;
 
         const auto& occursPos = ( val ? ctx.positive_occur[literal] : ctx.negative_occur[literal]);
         const auto& occursNeg = (!val ? ctx.positive_occur[literal] : ctx.negative_occur[literal]);
@@ -96,7 +95,6 @@ class solver
         if (!res)
         {
             ctx.valuation[literal] = (val ? FALSE : TRUE);
-            io.out() << "setting " << literal << " => "  << (!val ? "TRUE" : "FALSE") << std::endl;
             for (const auto& idx : occursPos) formula[idx].positive--;
             for (const auto& idx : occursNeg) formula[idx].positive++;
             res = solve(level+1);
