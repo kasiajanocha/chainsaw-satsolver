@@ -40,7 +40,7 @@ public:
 template <typename T>
 std::ostream& operator<< (std::ostream& ostr, const valuation<T>& val)
 {
-    for (idx_type idx = 1; idx <= val.size(); ++idx)
+    for (idx_type idx = 1; idx < val.size(); ++idx)
     {
         ostr << (val[idx] ? " " : " -") << idx;
     }
